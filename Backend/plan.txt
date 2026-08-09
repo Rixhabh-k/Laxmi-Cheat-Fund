@@ -1,0 +1,79 @@
+1. Create a account of a user take 
+   -name
+   -email
+   -phone number
+   -aadhar card number
+   -address
+   -pan card no
+   -current or saving 
+   -nomniee
+   -image
+   -pin
+   -password
+Create account using these data and provide a account number of 10 digits and save all  these data into backend.
+
+2. Login user using phone number and password not pin
+
+3. make an admin route and controller 
+
+
+1. Auth
+   │
+   ├── Create Account ✅
+   ├── Login ✅
+   └── Logout ❌
+
+2. User
+   │
+   ├── Get Profile ✅
+   ├── Update Profile 
+   ├── Change Password
+   └── Change PIN
+
+Account
+│
+├── Balance
+├── Deposit
+├── Withdraw
+├── Transfer
+└── Transaction History
+
+
+
+
+
+    const getUsers = async (req, res) => {
+try {
+const { status } = req.query;
+
+```
+const filter = {};
+
+if (status) {
+  filter.status = status;
+}
+
+const users = await userModel
+  .find(filter)
+  .select("-password -pin -aadharCardNumber -panCardNumber");
+
+return res.status(200).json({
+  message: "Users fetched successfully",
+  count: users.length,
+  users,
+});
+```
+
+} catch (error) {
+console.error(error);
+
+```
+return res.status(500).json({
+  message: "Internal server error",
+});
+```
+
+}
+};
+
+ye controller toda sa explain kar
