@@ -313,7 +313,7 @@ const sendAmountController = async (req, res) => {
 
   if (!receiverUser) {
     await transactionModel.create({
-      userId: userId,
+      userId: userId, 
       type: "Transfer",
       transactionRef: transactionId,
       amount: amount,
