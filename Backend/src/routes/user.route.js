@@ -8,5 +8,6 @@ const userRouter = express.Router()
 userRouter.get("/get-profile",verifyUser,userController.getUserProfileContoller)
 userRouter.post("/deposite",verifyUser,checkAccountStatus,userController.depositeAmountController)
 userRouter.post("/withdrawal",verifyUser,checkAccountStatus,userController.withdrawalAmountController)
+userRouter.post("/transfer",verifyUser,checkAccountStatus,userController.sendAmountController)
 
 module.exports = userRouter

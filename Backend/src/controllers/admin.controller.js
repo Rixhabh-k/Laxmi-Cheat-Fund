@@ -67,6 +67,8 @@ const adminLoginController = async (req, res) => {
 
 //get users
 const getUsersController = async (req, res) => {
+
+  
   const { status } = req.query;
 
   const filter = {};
