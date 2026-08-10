@@ -2,7 +2,7 @@ const userModel = require("../models/userModel");
 const transactionModel = require("../models/transactionModel");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
-const generateTransactionId = require("../utils/generateTransactionId")
+const generateTransactionId = require("../utils/generateTransactionId");
 
 const getUserProfileContoller = async (req, res) => {
   const userId = req.user.id;
@@ -62,6 +62,14 @@ const depositeAmountController = async (req, res) => {
 
     return res.status(409).json({
       message: "Incorrect Pin",
+      transactionRecord: {
+        type: "Deposit",
+        transactionRef: transactionId,
+        amount: amount,
+        accountNumber: user.accountNumber,
+        status: "Failed",
+        failureReason: "Incorrect PIN",
+      },
     });
   }
 
@@ -78,6 +86,14 @@ const depositeAmountController = async (req, res) => {
 
     return res.status(400).json({
       message: "Amount must be greater than 0",
+      transactionRecord: {
+        type: "Deposit",
+        transactionRef: transactionId,
+        amount: amount,
+        accountNumber: user.accountNumber,
+        status: "Failed",
+        failureReason: "Invalid Amount",
+      },
     });
   }
 
@@ -98,9 +114,15 @@ const depositeAmountController = async (req, res) => {
 
   return res.status(201).json({
     message: "Amount deposited into your account",
+    transactionRecord: {
+        type: "Deposit",
+        transactionRef: transactionId,
+        amount: amount,
+        accountNumber: user.accountNumber,
+        status: "Success", 
+      },
   });
 };
-
 
 // withdrawal
 const withdrawalAmountController = async (req, res) => {
@@ -133,6 +155,14 @@ const withdrawalAmountController = async (req, res) => {
 
     return res.status(409).json({
       message: "Incorrect Pin",
+      transactionRecord: {
+        type: "Withdrawal",
+        transactionRef: transactionId,
+        amount: withdrawalAmount,
+        accountNumber: user.accountNumber,
+        status: "Failed",
+        failureReason: "Incorrect PIN",
+      },
     });
   }
 
@@ -149,6 +179,14 @@ const withdrawalAmountController = async (req, res) => {
 
     return res.status(403).json({
       message: "Invalid amount",
+      transactionRecord: {
+        type: "Withdrawal",
+        transactionRef: transactionId,
+        amount: withdrawalAmount,
+        accountNumber: user.accountNumber,
+        status: "Failed",
+        failureReason: "Invalid amount",
+      },
     });
   }
 
@@ -167,6 +205,14 @@ const withdrawalAmountController = async (req, res) => {
 
     return res.status(403).json({
       message: "Insufficient Balance",
+      transactionRecord: {
+        type: "Withdrawal",
+        transactionRef: transactionId,
+        amount: withdrawalAmount,
+        accountNumber: user.accountNumber,
+        status: "Failed",
+        failureReason: "Insufficient Balance",
+      },
     });
   }
 
@@ -188,6 +234,13 @@ const withdrawalAmountController = async (req, res) => {
   return res.status(201).json({
     message: "Withdrawal successful",
     remaningAmount,
+    transactionRecord: {
+        type: "Withdrawal",
+        transactionRef: transactionId,
+        amount: withdrawalAmount,
+        accountNumber: user.accountNumber,
+        status: "Success", 
+      },
   });
 };
 
@@ -195,13 +248,7 @@ const withdrawalAmountController = async (req, res) => {
 const sendAmountController = async (req, res) => {
   const userId = req.user.id; // sender
 
-  const {
-    receiverAccountNumber,
-    pin,
-    amount
-  } = req.body; // receiver
-
- 
+  const { receiverAccountNumber, pin, amount } = req.body; // receiver
 
   const senderUser = await userModel.findById(userId);
 
@@ -229,6 +276,15 @@ const sendAmountController = async (req, res) => {
 
     return res.status(409).json({
       message: "Incorrect PIN",
+      transactionRecord: {
+        type: "Transfer",
+        transactionRef: transactionId,
+        amount: amount,
+        senderAccountNumber: senderUser.accountNumber,
+        receiverAccountNumber: receiverAccountNumber,
+        status: "Failed", 
+        failureReason: "Incorrect PIN",
+      },
     });
   }
 
@@ -255,8 +311,6 @@ const sendAmountController = async (req, res) => {
     accountNumber: receiverAccountNumber,
   });
 
-  
-
   if (!receiverUser) {
     await transactionModel.create({
       userId: userId,
@@ -272,6 +326,15 @@ const sendAmountController = async (req, res) => {
 
     return res.status(404).json({
       message: "Receiver not found",
+      transactionRecord: {
+        type: "Transfer",
+        transactionRef: transactionId,
+        amount: amount,
+        senderAccountNumber: senderUser.accountNumber,
+        receiverAccountNumber: receiverAccountNumber,
+        status: "Failed", 
+        failureReason: "Reciver not found",
+      },
     });
   }
 
@@ -293,6 +356,15 @@ const sendAmountController = async (req, res) => {
 
     return res.status(400).json({
       message: "You cannot transfer money to yourself",
+      transactionRecord: {
+        type: "Transfer",
+        transactionRef: transactionId,
+        amount: amount,
+        senderAccountNumber: senderUser.accountNumber,
+        receiverAccountNumber: receiverAccountNumber,
+        status: "Failed", 
+        failureReason: "You cannot send money to yourself",
+      },
     });
   }
 
@@ -311,6 +383,15 @@ const sendAmountController = async (req, res) => {
 
     return res.status(403).json({
       message: "Receiver account is not active",
+      transactionRecord: {
+        type: "Transfer",
+        transactionRef: transactionId,
+        amount: amount,
+        senderAccountNumber: senderUser.accountNumber,
+        receiverAccountNumber: receiverAccountNumber,
+        status: "Failed", 
+        failureReason: "The receiver account is not Active",
+      },
     });
   }
 
@@ -329,6 +410,15 @@ const sendAmountController = async (req, res) => {
 
     return res.status(403).json({
       message: "Insufficient balance",
+      transactionRecord: {
+        type: "Transfer",
+        transactionRef: transactionId,
+        amount: amount,
+        senderAccountNumber: senderUser.accountNumber,
+        receiverAccountNumber: receiverAccountNumber,
+        status: "Failed", 
+        failureReason: "Insufficienct Balance",
+      },
     });
   }
 
@@ -353,6 +443,15 @@ const sendAmountController = async (req, res) => {
 
   return res.status(201).json({
     message: "Transfer successful",
+    transactionRecord: {
+        type: "Transfer",
+        transactionRef: transactionId,
+        amount: amount,
+        senderAccountNumber: senderUser.accountNumber,
+        receiverAccountNumber: receiverAccountNumber,
+        status: "Success", 
+      
+      },
   });
 };
 
@@ -360,5 +459,5 @@ module.exports = {
   getUserProfileContoller,
   depositeAmountController,
   withdrawalAmountController,
-  sendAmountController
+  sendAmountController,
 };
