@@ -1,4 +1,5 @@
 const userModel = require("../models/userModel");
+const auditModel = require("../models/auditLogsModel");
 const jwt = require("jsonwebtoken");
 const ImageKit = require("@imagekit/nodejs");
 const {toFile} = require("@imagekit/nodejs");
@@ -26,6 +27,8 @@ const createAccountControlller = async (req, res) => {
     pin,
     password
   } = req.body;
+
+  const ip = req.ip;
 
   //creating account number
 
@@ -73,6 +76,13 @@ const createAccountControlller = async (req, res) => {
 
   res.cookie("token",token)
 
+  const auditRecord = await auditModel.create({
+    user: accountNumber,
+    action: "New account creation",
+    status: "Success",
+    ipAddress:ip,
+  })
+
   res.status(200).json({
     message: "Your account creation request and been sent to the admin wait until admin approves your account",
     user:{
@@ -107,6 +117,13 @@ const loginController = async(req,res)=>{
     const token = jwt.sign({id: user._id},process.env.JWT_SECRET,{expiresIn: "1d"})
 
     res.cookie("token",token)
+
+    const auditRecord = await auditModel.create({
+    user: user.accountNumber,
+    action: "Login",
+    login: Date.now(),
+    status: "Success",
+  })
 
     res.status(200).json({
         message: "user logged in sucessfully"

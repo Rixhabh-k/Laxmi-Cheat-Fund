@@ -1,8 +1,25 @@
 const userModel = require("../models/userModel");
 const transactionModel = require("../models/transactionModel");
+const auditLogsModel = require("../models/auditLogsModel");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const generateTransactionId = require("../utils/generateTransactionId");
+
+// audit logging helper - best-effort, never blocks the actual request
+const logAudit = async ({ action, user, status, targatedUser, ipAddress, req }) => {
+  try {
+    await auditLogsModel.create({
+      action,
+      user,
+      status,
+      targatedUser,
+      ipAddress:
+        ipAddress || req?.headers["x-forwarded-for"] || req?.socket?.remoteAddress,
+    });
+  } catch (err) {
+    console.error("Audit log failed:", err.message);
+  }
+};
 
 const getUserProfileContoller = async (req, res) => {
   const userId = req.user.id;
@@ -10,12 +27,25 @@ const getUserProfileContoller = async (req, res) => {
   const user = await userModel.findById(userId);
 
   if (!user) {
+    await logAudit({
+      action: "Get Profile",
+      user: userId,
+      status: "Failed",
+      req,
+    });
     return res.status(404).json({
       message: "user not found",
     });
   }
 
-  res.status(201).json({
+  await logAudit({
+    action: "Get Profile",
+    user: user.accountNumber,
+    status: "Success",
+    req,
+  });
+
+  res.status(200).json({
     message: "profile fetched successfully",
     user: {
       id: user._id,
@@ -25,6 +55,10 @@ const getUserProfileContoller = async (req, res) => {
       accountNumber: user.accountNumber,
       accountType: user.accountType,
       address: user.address,
+      nominee: user.nominee,
+      aadharCardNumber: user.aadharCardNumber,
+      panCardNumber: user.panCardNumber,
+      balance: user.balance,
       image: user.image,
       status: user.status,
       createdAt: user.createdAt,
@@ -40,6 +74,12 @@ const depositeAmountController = async (req, res) => {
   const user = await userModel.findById(userId);
 
   if (!user) {
+    await logAudit({
+      action: "Deposit",
+      user: userId,
+      status: "Failed",
+      req,
+    });
     return res.status(404).json({
       message: "User not found",
     });
@@ -58,6 +98,13 @@ const depositeAmountController = async (req, res) => {
       accountNumber: user.accountNumber,
       status: "Failed",
       failureReason: "Incorrect PIN",
+    });
+
+    await logAudit({
+      action: "Deposit",
+      user: user.accountNumber,
+      status: "Failed",
+      req,
     });
 
     return res.status(409).json({
@@ -82,6 +129,13 @@ const depositeAmountController = async (req, res) => {
       accountNumber: user.accountNumber,
       status: "Failed",
       failureReason: "Invalid amount",
+    });
+
+    await logAudit({
+      action: "Deposit",
+      user: user.accountNumber,
+      status: "Failed",
+      req,
     });
 
     return res.status(400).json({
@@ -112,15 +166,22 @@ const depositeAmountController = async (req, res) => {
     status: "Success",
   });
 
+  await logAudit({
+    action: "Deposit",
+    user: user.accountNumber,
+    status: "Success",
+    req,
+  });
+
   return res.status(201).json({
     message: "Amount deposited into your account",
     transactionRecord: {
-        type: "Deposit",
-        transactionRef: transactionId,
-        amount: amount,
-        accountNumber: user.accountNumber,
-        status: "Success", 
-      },
+      type: "Deposit",
+      transactionRef: transactionId,
+      amount: amount,
+      accountNumber: user.accountNumber,
+      status: "Success",
+    },
   });
 };
 
@@ -133,6 +194,12 @@ const withdrawalAmountController = async (req, res) => {
   const user = await userModel.findById(userId);
 
   if (!user) {
+    await logAudit({
+      action: "Withdrawal",
+      user: userId,
+      status: "Failed",
+      req,
+    });
     return res.status(404).json({
       message: "User not found",
     });
@@ -151,6 +218,13 @@ const withdrawalAmountController = async (req, res) => {
       accountNumber: user.accountNumber,
       status: "Failed",
       failureReason: "Incorrect PIN",
+    });
+
+    await logAudit({
+      action: "Withdrawal",
+      user: user.accountNumber,
+      status: "Failed",
+      req,
     });
 
     return res.status(409).json({
@@ -177,6 +251,13 @@ const withdrawalAmountController = async (req, res) => {
       failureReason: "Invalid amount",
     });
 
+    await logAudit({
+      action: "Withdrawal",
+      user: user.accountNumber,
+      status: "Failed",
+      req,
+    });
+
     return res.status(403).json({
       message: "Invalid amount",
       transactionRecord: {
@@ -201,6 +282,13 @@ const withdrawalAmountController = async (req, res) => {
       accountNumber: user.accountNumber,
       status: "Failed",
       failureReason: "Insufficient balance",
+    });
+
+    await logAudit({
+      action: "Withdrawal",
+      user: user.accountNumber,
+      status: "Failed",
+      req,
     });
 
     return res.status(403).json({
@@ -231,16 +319,23 @@ const withdrawalAmountController = async (req, res) => {
     status: "Success",
   });
 
+  await logAudit({
+    action: "Withdrawal",
+    user: user.accountNumber,
+    status: "Success",
+    req,
+  });
+
   return res.status(201).json({
     message: "Withdrawal successful",
     remaningAmount,
     transactionRecord: {
-        type: "Withdrawal",
-        transactionRef: transactionId,
-        amount: withdrawalAmount,
-        accountNumber: user.accountNumber,
-        status: "Success", 
-      },
+      type: "Withdrawal",
+      transactionRef: transactionId,
+      amount: withdrawalAmount,
+      accountNumber: user.accountNumber,
+      status: "Success",
+    },
   });
 };
 
@@ -253,6 +348,12 @@ const sendAmountController = async (req, res) => {
   const senderUser = await userModel.findById(userId);
 
   if (!senderUser) {
+    await logAudit({
+      action: "Transfer",
+      user: userId,
+      status: "Failed",
+      req,
+    });
     return res.status(404).json({
       message: "Sender not found",
     });
@@ -274,6 +375,14 @@ const sendAmountController = async (req, res) => {
       failureReason: "Incorrect PIN",
     });
 
+    await logAudit({
+      action: "Transfer",
+      user: senderUser.accountNumber,
+      targatedUser: receiverAccountNumber,
+      status: "Failed",
+      req,
+    });
+
     return res.status(409).json({
       message: "Incorrect PIN",
       transactionRecord: {
@@ -282,7 +391,7 @@ const sendAmountController = async (req, res) => {
         amount: amount,
         senderAccountNumber: senderUser.accountNumber,
         receiverAccountNumber: receiverAccountNumber,
-        status: "Failed", 
+        status: "Failed",
         failureReason: "Incorrect PIN",
       },
     });
@@ -300,6 +409,14 @@ const sendAmountController = async (req, res) => {
       failureReason: "Invalid amount",
     });
 
+    await logAudit({
+      action: "Transfer",
+      user: senderUser.accountNumber,
+      targatedUser: receiverAccountNumber,
+      status: "Failed",
+      req,
+    });
+
     return res.status(409).json({
       message: "Amount should be more than 0",
     });
@@ -313,7 +430,7 @@ const sendAmountController = async (req, res) => {
 
   if (!receiverUser) {
     await transactionModel.create({
-      userId: userId, 
+      userId: userId,
       type: "Transfer",
       transactionRef: transactionId,
       amount: amount,
@@ -324,6 +441,14 @@ const sendAmountController = async (req, res) => {
       failureReason: "Receiver not found",
     });
 
+    await logAudit({
+      action: "Transfer",
+      user: senderUser.accountNumber,
+      targatedUser: receiverAccountNumber,
+      status: "Failed",
+      req,
+    });
+
     return res.status(404).json({
       message: "Receiver not found",
       transactionRecord: {
@@ -332,7 +457,7 @@ const sendAmountController = async (req, res) => {
         amount: amount,
         senderAccountNumber: senderUser.accountNumber,
         receiverAccountNumber: receiverAccountNumber,
-        status: "Failed", 
+        status: "Failed",
         failureReason: "Reciver not found",
       },
     });
@@ -354,6 +479,14 @@ const sendAmountController = async (req, res) => {
       failureReason: "Cannot transfer money to yourself",
     });
 
+    await logAudit({
+      action: "Transfer",
+      user: senderUser.accountNumber,
+      targatedUser: receiverUser.accountNumber,
+      status: "Failed",
+      req,
+    });
+
     return res.status(400).json({
       message: "You cannot transfer money to yourself",
       transactionRecord: {
@@ -362,7 +495,7 @@ const sendAmountController = async (req, res) => {
         amount: amount,
         senderAccountNumber: senderUser.accountNumber,
         receiverAccountNumber: receiverAccountNumber,
-        status: "Failed", 
+        status: "Failed",
         failureReason: "You cannot send money to yourself",
       },
     });
@@ -381,6 +514,14 @@ const sendAmountController = async (req, res) => {
       failureReason: "Receiver account is not active",
     });
 
+    await logAudit({
+      action: "Transfer",
+      user: senderUser.accountNumber,
+      targatedUser: receiverUser.accountNumber,
+      status: "Failed",
+      req,
+    });
+
     return res.status(403).json({
       message: "Receiver account is not active",
       transactionRecord: {
@@ -389,7 +530,7 @@ const sendAmountController = async (req, res) => {
         amount: amount,
         senderAccountNumber: senderUser.accountNumber,
         receiverAccountNumber: receiverAccountNumber,
-        status: "Failed", 
+        status: "Failed",
         failureReason: "The receiver account is not Active",
       },
     });
@@ -408,6 +549,14 @@ const sendAmountController = async (req, res) => {
       failureReason: "Insufficient balance",
     });
 
+    await logAudit({
+      action: "Transfer",
+      user: senderUser.accountNumber,
+      targatedUser: receiverUser.accountNumber,
+      status: "Failed",
+      req,
+    });
+
     return res.status(403).json({
       message: "Insufficient balance",
       transactionRecord: {
@@ -416,7 +565,7 @@ const sendAmountController = async (req, res) => {
         amount: amount,
         senderAccountNumber: senderUser.accountNumber,
         receiverAccountNumber: receiverAccountNumber,
-        status: "Failed", 
+        status: "Failed",
         failureReason: "Insufficienct Balance",
       },
     });
@@ -441,17 +590,74 @@ const sendAmountController = async (req, res) => {
     status: "Success",
   });
 
+  await logAudit({
+    action: "Transfer",
+    user: senderUser.accountNumber,
+    targatedUser: receiverUser.accountNumber,
+    status: "Success",
+    req,
+  });
+
   return res.status(201).json({
     message: "Transfer successful",
     transactionRecord: {
-        type: "Transfer",
-        transactionRef: transactionId,
-        amount: amount,
-        senderAccountNumber: senderUser.accountNumber,
-        receiverAccountNumber: receiverAccountNumber,
-        status: "Success", 
-      
-      },
+      type: "Transfer",
+      transactionRef: transactionId,
+      amount: amount,
+      senderAccountNumber: senderUser.accountNumber,
+      receiverAccountNumber: receiverAccountNumber,
+      status: "Success",
+    },
+  });
+};
+
+//statements
+const getAccountStatements = async (req, res) => {
+  const userId = req.user.id;
+
+  const statements = await transactionModel.find({ userId: userId });
+
+  if (!statements) {
+    return res.status(404).json({
+      message: "No Statements found",
+    });
+  }
+
+  await logAudit({
+    action: "Get Statements",
+    user: userId,
+    status: "Success",
+    req,
+  });
+
+  res.status(200).json({
+    message: "Statements fetched",
+    statements,
+  });
+};
+
+//txn history
+const getTxnHistory = async (req, res) => {
+  const userId = req.user.id;
+
+  const txnHistory = await transactionModel.find({ userId: userId });
+
+  if (!txnHistory) {
+    return res.status(404).json({
+      message: "No Txn History found",
+    });
+  }
+
+  await logAudit({
+    action: "Get Txn History",
+    user: userId,
+    status: "Success",
+    req,
+  });
+
+  res.status(200).json({
+    message: "History fetched",
+    txnHistory,
   });
 };
 
@@ -460,4 +666,6 @@ module.exports = {
   depositeAmountController,
   withdrawalAmountController,
   sendAmountController,
+  getAccountStatements,
+  getTxnHistory,
 };
